@@ -129,6 +129,42 @@ class TestIsTransient:
         )
         assert _is_transient(exc) is True
 
+    def test_cloudflare_challenge_html_is_transient(self):
+        import litellm
+
+        exc = litellm.APIError(
+            status_code=403,
+            message=(
+                "ChatgptException - <html>...Enable JavaScript and cookies to continue..."
+                "</html>"
+            ),
+            llm_provider="openai",
+            model="gpt-5.5",
+        )
+        assert _is_transient(exc) is True
+
+    def test_cloudflare_cf_chl_opt_is_transient(self):
+        import litellm
+
+        exc = litellm.APIError(
+            status_code=403,
+            message="ChatgptException - <script>var _cf_chl_opt={...}</script>",
+            llm_provider="openai",
+            model="gpt-5.5",
+        )
+        assert _is_transient(exc) is True
+
+    def test_cloudflare_cdn_cgi_is_transient(self):
+        import litellm
+
+        exc = litellm.APIError(
+            status_code=403,
+            message="ChatgptException - /cdn-cgi/challenge-platform/...",
+            llm_provider="openai",
+            model="gpt-5.5",
+        )
+        assert _is_transient(exc) is True
+
 
 class TestCompletionWithRetry:
     def test_succeeds_first_try(self):

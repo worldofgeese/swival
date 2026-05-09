@@ -459,6 +459,11 @@ _SSO_TOKEN_ERROR_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CLOUDFLARE_CHALLENGE_RE = re.compile(
+    r"cdn-cgi/challenge-platform|_cf_chl_opt|Enable JavaScript and cookies to continue",
+    re.IGNORECASE,
+)
+
 
 def _is_transient(exc):
     """Return True if the exception looks like a transient network/server error."""
@@ -491,6 +496,8 @@ def _is_transient(exc):
         status = getattr(exc, "status_code", None)
         if status is None or 500 <= status < 600:
             return True
+    if _CLOUDFLARE_CHALLENGE_RE.search(str(exc)):
+        return True
     return bool(_TRANSIENT_PATTERNS.search(str(exc)))
 
 
@@ -3621,6 +3628,20 @@ def call_llm(
                 "    --model global.anthropic.claude-opus-4-6-v1 \\\n"
                 "    --base-url us-east-2 \\\n"
                 '    --aws-profile bedrock "task"'
+            )
+        elif provider == "chatgpt" and _CLOUDFLARE_CHALLENGE_RE.search(msg_text):
+            msg = (
+                "ChatGPT API returned a Cloudflare challenge page.\n\n"
+                "This usually indicates rate limiting or a temporary access restriction.\n"
+                "Wait a moment and try again. If it persists, try:\n\n"
+                "  swival --logout\n\n"
+                "to re-authenticate."
+            )
+        elif provider == "chatgpt" and "Unknown items in responses" in msg_text:
+            msg = (
+                "ChatGPT API returned an empty response.\n\n"
+                "This can happen when the model is temporarily overloaded.\n"
+                "The request will be retried automatically."
             )
         ae = AgentError(msg)
         ae._provider_retries = _retries_from_exc(e)
